@@ -1,77 +1,128 @@
 #include <bits/stdc++.h>
-#include <omp.h>
-
+#include <iostream>
+using namespace std::chrono;
 using namespace std;
-
-// Function to perform parallel reduction for minimum value
-template <typename T>
-T parallelMin(const vector<T> &arr)
+class Computation
 {
-    T result = arr[0];
-    #pragma omp parallel for reduction(min : result)
-    for (int i = 0; i < arr.size(); ++i)
+public:
+    void MinValue(vector<int> &arr)
     {
-        result = min(result, arr[i]);
+        int minval = arr[0];
+        for (int i = 1; i < arr.size(); i++)
+        {
+            if (minval > arr[i])
+            {
+                minval = arr[i];
+            }
+        }
     }
-    return result;
-}
-
-// Function to perform parallel reduction for maximum value
-template <typename T>
-T parallelMax(const vector<T> &arr)
-{
-    T result = arr[0];
-    #pragma omp parallel for reduction(max : result)
-    for (int i = 0; i < arr.size(); ++i)
+    void MaxValue(vector<int> &arr)
     {
-        result = max(result, arr[i]);
+        int maxval = arr[0];
+        for (int i = 1; i < arr.size(); i++)
+        {
+            if (maxval < arr[i])
+            {
+                maxval = arr[i];
+            }
+        }
     }
-    return result;
-}
-
-// Function to perform parallel reduction for sum
-template <typename T>
-T parallelSum(const vector<T> &arr)
-{
-    T result = arr[0];
-    #pragma omp parallel for reduction(+ : result)
-    for (int i = 0; i < arr.size(); ++i)
+    void SumVal(vector<int> &arr)
     {
-        result += arr[i];
+        int sum = 0;
+        for (int i = 1; i < arr.size(); i++)
+        {
+            sum += arr[i];
+        }
     }
-    return result;
-}
-
-// Function to perform parallel reduction for average
-template <typename T>
-double parallelAverage(const vector<T> &arr)
+};
+class ParallelComputation
 {
-    T sum = parallelSum(arr);
-    return sum / arr.size();
-}
-
+public:
+    void MinValue(vector<int> &arr)
+    {
+        int minval = arr[0];
+        #pragma omp parallel for reduction(min:minval)
+        for (int i = 1; i < arr.size(); i++)
+        {
+            if (minval > arr[i])
+            {
+                minval = arr[i];
+            }
+        }
+    }
+    void MaxValue(vector<int> &arr)
+    {
+        int maxval = arr[0];
+        #pragma omp parallel for reduction(max:maxval)
+        for (int i = 1; i < arr.size(); i++)
+        {
+            if (maxval < arr[i])
+            {
+                maxval = arr[i];
+            }
+        }
+    }
+    void SumVal(vector<int> &arr)
+    {
+        int sum = 0;
+        #pragma omp parallel for reduction(+ : sum)
+        for (int i = 1; i < arr.size(); i++)
+        {
+            sum += arr[i];
+        }
+    }
+};
 int main()
 {
-    const int size = 10;
-    vector<int> arr(size);
-
-    // Initialize the array with random values
-    for (int i = 0; i < size; ++i)
+    Computation sc;
+    ParallelComputation pp;
+    int n = 1000000;
+    vector<int> arr(n);
+    for (int i = 0; i < n; i++)
     {
         arr[i] = rand() % 1000;
-        cout << arr[i] << " ";
     }
-    cout << endl;
-    // Compute min, max, sum, and average using parallel reduction
-    int minVal = parallelMin(arr);
-    int maxVal = parallelMax(arr);
-    int sum = parallelSum(arr);
-    double average = parallelAverage(arr);
+    // Sequntial
+    auto start = high_resolution_clock::now();
+    sc.MaxValue(arr);
+    auto end = high_resolution_clock::now();
+    auto sqmax = duration_cast<microseconds>(end - start);
 
-    cout << "Minimum value: " << minVal << endl;
-    cout << "Maximum value: " << maxVal << endl;
-    cout << "Sum: " << sum << endl;
-    cout << "Average: " << average << endl;
+    start = high_resolution_clock::now();
+    sc.MinValue(arr);
+    end = high_resolution_clock::now();
+    auto sqmin = duration_cast<microseconds>(end - start);
 
+    start = high_resolution_clock::now();
+    sc.SumVal(arr);
+    end = high_resolution_clock::now();
+    auto sqsum = duration_cast<microseconds>(end - start);
+
+    // Parallel
+    start = high_resolution_clock::now();
+    pp.MaxValue(arr);
+    end = high_resolution_clock::now();
+    auto ppmax = duration_cast<microseconds>(end - start);
+
+    start = high_resolution_clock::now();
+    pp.MinValue(arr);
+    end = high_resolution_clock::now();
+    auto ppmin = duration_cast<microseconds>(end - start);
+
+    start = high_resolution_clock::now();
+    pp.SumVal(arr);
+    end = high_resolution_clock::now();
+    auto ppsum = duration_cast<microseconds>(end - start);
+
+    cout << "\n+++++++++ TIME CALCULATION +++++++++" << endl
+         << endl;
+    cout << "\nSequential Max time - " << sqmax.count() << " milliseconds" << endl;
+    cout << "Sequential Min time - " << sqmin.count() << " milliseconds" << endl;
+    cout << "Sequential Sum time - " << sqsum.count() << " milliseconds" << endl;
+
+    cout << "Parallel Max time - " << ppmax.count() << " milliseconds" << endl;
+    cout << "Parallel Min time - " << ppmin.count() << " milliseconds" << endl;
+    cout << "Parallel Sum time - " << ppsum.count() << " milliseconds" << endl;
     return 0;
 }
