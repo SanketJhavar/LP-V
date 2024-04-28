@@ -1,113 +1,135 @@
-#include <iostream>
-#include <vector>
-#include <queue>
-#include <omp.h>
-
+#include <bits/stdc++.h>
 using namespace std;
-
-// Define the graph structure (undirected graph)
+using namespace std::chrono;
 class Graph
 {
-    int V;                   // Number of vertices
-    vector<vector<int>> adj; // Adjacency list
-
 public:
-    Graph(int V)
+    void dfs(vector<int> adj[], vector<int> &vis, int v)
     {
-        this->V = V;
-        adj.resize(V);
+        vis[v] = 1;
+        for (int i = 0; i < adj[v].size(); i++)
+        {
+            if (vis[adj[v][i]] == 0)
+            {
+                dfs(adj, vis, adj[v][i]);
+            }
+        }
     }
-
-    // Function to add an edge to the graph
-    void addEdge(int u, int v)
+    void bfs(vector<int> adj[], queue<int> &q, vector<int> &vis)
     {
+        if (q.empty())
+            return;
+        int v = q.front();
+        vis[v] = 1;
+        q.pop();
+        for (int i = 0; i < adj[v].size(); i++)
+        {
+            if (vis[adj[v][i]] == 0)
+            {
+                q.push(adj[v][i]);
+                vis[adj[v][i]] = 1;
+            }
+        }
+        bfs(adj, q, vis);
+    }
+};
+class ParallelGraph
+{
+public:
+    void dfs(vector<int> adj[], vector<int> &vis, int v)
+    {
+        vis[v] = 1;
+        #pragma omp parallel for
+        for (int i = 0; i < adj[v].size(); i++)
+        {
+            if (vis[adj[v][i]] == 0)
+            {
+                dfs(adj, vis, adj[v][i]);
+            }
+        }
+    }
+    void bfs(vector<int> adj[], queue<int> &q, vector<int> &vis)
+    {
+        if (q.empty())
+            return;
+        int v = q.front();
+        vis[v] = 1;
+        q.pop();
+        #pragma omp parallel for
+        for (int i = 0; i < adj[v].size(); i++)
+        {
+            if (vis[adj[v][i]] == 0)
+            {
+                q.push(adj[v][i]);
+                vis[adj[v][i]] = 1;
+            }
+        }
+        bfs(adj, q, vis);
+    }
+};
+int main()
+{
+    int v;
+    cout << "Enter the Number of Vertex - ";
+    cin >> v;
+    int e;
+    cout << "Enter the Number of Edges - ";
+    cin >> e;
+    vector<int> adj[v];
+    for (int i = 0; i < e; i++)
+    {
+        int u, v;
+        cout << "Enter the value of u and v - ";
+        cin >> u >> v;
         adj[u].push_back(v);
         adj[v].push_back(u);
     }
+    vector<int> vis(v, 0);
+    queue<int> q;
+    Graph sg;
+    ParallelGraph pg;
+    //Sequential Time
+    //1.dfs
+    auto start = high_resolution_clock::now();
+    sg.dfs(adj,vis,0);
+    auto end = high_resolution_clock::now();
+    auto sqdfstime = duration_cast<milliseconds>(end-start);
 
-    // Parallel Breadth First Search
-    // Parallel Breadth First Search
-    void parallelBFS(int source)
-    {
-        vector<bool> visited(adj.size(), false);
-        queue<int> q;
-        visited[source] = true;
-        q.push(source);
-        while (!q.empty())
-        {
-            int u;
-            #pragma omp parallel shared(q, visited)
-            {
-                #pragma omp single
-                {
-                    u = q.front();
-                    q.pop();
-                    cout << u << " ";
-                }
-                if (!(adj[u].size() == 0))
-                {
-                    #pragma omp for
-                    for (int i = 0; i <= adj[u].size() - 1; ++i)
-                    {
-                        if (!visited[adj[u][i]])
-                        {
-                            #pragma omp critical
-                            {
-                                q.push(adj[u][i]);
-                                visited[adj[u][i]] = true;
-                            }
-                        }
-                    }
-                }
-            }
-        }
+
+    for(int i=0;i<vis.size();i++){
+        vis[i]=0;
     }
+    //2.bfs
+    start = high_resolution_clock::now();
+    sg.bfs(adj,q,vis);
+    end = high_resolution_clock::now();
+    auto sqbfstime = duration_cast<milliseconds>(end-start);
 
-    // Parallel Depth First Search
-    // Parallel Depth First Search
-    void parallelDFSUtil(int v, vector<bool> &visited)
-    {
-        visited[v] = true;
-        cout << v << " ";
 
-        // Traverse all adjacent vertices
-        #pragma omp parallel for
-        for (int i = 0; i < adj[v].size(); ++i)
-        {
-            int u = adj[v][i];
-            if (!visited[u])
-            {
-                parallelDFSUtil(u, visited);
-            }
-        }
+    //Parallel
+    //1.dfs
+    for(int i=0;i<vis.size();i++){
+        vis[i]=0;
     }
+    start = high_resolution_clock::now();
+    pg.dfs(adj,vis,0);
+    end = high_resolution_clock::now();
+    auto pdfstime = duration_cast<milliseconds>(end-start);
 
-    void parallelDFS(int source)
-    {
-        vector<bool> visited(V, false);
-        parallelDFSUtil(source, visited);
+    //2.bfs
+    for(int i=0;i<vis.size();i++){
+        vis[i]=0;
     }
-};
-
-int main()
-{
-    // Create a graph
-    Graph g(6);
-    g.addEdge(0, 1);
-    g.addEdge(0, 2);
-    g.addEdge(1, 3);
-    g.addEdge(1, 4);
-    g.addEdge(2, 4);
-    g.addEdge(3, 5);
-    g.addEdge(4, 5);
-
-    cout << "Parallel Breadth First Search (BFS) starting from vertex 0: ";
-    g.parallelBFS(0);
-    cout << endl;
-
-    cout << "Parallel Depth First Search (DFS) starting from vertex 0: ";
-    g.parallelDFS(0);
-    cout << endl;
+    q.empty();
+    start = high_resolution_clock::now();
+    pg.bfs(adj,q,vis);
+    end = high_resolution_clock::now();
+    auto pbfstime = duration_cast<milliseconds>(end-start);
+    cout<<endl<<"+++++++++ TIME CALCULATIONS ++++++++"<<endl;
+    cout<<"Sequential time for dfs - "<<sqdfstime.count()<<" millisecond"<<endl;
+    cout<<"Sequential time for bfs - "<<sqbfstime.count()<<" millisecond"<<endl;
+    cout<<"Parallel time for dfs - "<<pdfstime.count()<<" millisecond"<<endl;
+    cout<<"Parallel time for bfs - "<<pbfstime.count()<<" millisecond"<<endl;
 
     return 0;
 }
