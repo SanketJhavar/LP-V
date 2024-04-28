@@ -7,6 +7,7 @@ public:
     void dfs(vector<int> adj[], vector<int> &vis, int v)
     {
         vis[v] = 1;
+        cout<<v<<" ";
         for (int i = 0; i < adj[v].size(); i++)
         {
             if (vis[adj[v][i]] == 0)
@@ -17,20 +18,23 @@ public:
     }
     void bfs(vector<int> adj[], queue<int> &q, vector<int> &vis)
     {
-        if (q.empty())
-            return;
-        int v = q.front();
-        vis[v] = 1;
-        q.pop();
-        for (int i = 0; i < adj[v].size(); i++)
+        while (!q.empty())
         {
-            if (vis[adj[v][i]] == 0)
+            int u;
+            u = q.front();
+            q.pop();
+            cout << u << " ";
+            for (int i = 0; i < adj[u].size(); ++i)
             {
-                q.push(adj[v][i]);
-                vis[adj[v][i]] = 1;
+                if (!vis[adj[u][i]])
+                {
+                    {
+                        q.push(adj[u][i]);
+                        vis[adj[u][i]] = true;
+                    }
+                }
             }
         }
-        bfs(adj, q, vis);
     }
 };
 class ParallelGraph
@@ -39,6 +43,7 @@ public:
     void dfs(vector<int> adj[], vector<int> &vis, int v)
     {
         vis[v] = 1;
+        cout<<v<<" ";
         #pragma omp parallel for
         for (int i = 0; i < adj[v].size(); i++)
         {
@@ -50,21 +55,25 @@ public:
     }
     void bfs(vector<int> adj[], queue<int> &q, vector<int> &vis)
     {
-        if (q.empty())
-            return;
-        int v = q.front();
-        vis[v] = 1;
-        q.pop();
-        #pragma omp parallel for
-        for (int i = 0; i < adj[v].size(); i++)
+        while (!q.empty())
         {
-            if (vis[adj[v][i]] == 0)
+            int u;
+            u = q.front();
+            q.pop();
+            cout << u << " ";
+            #pragma omp parallel for
+            for (int i = 0; i < adj[u].size(); ++i)
             {
-                q.push(adj[v][i]);
-                vis[adj[v][i]] = 1;
+                if (!vis[adj[u][i]])
+                {
+                    #pragma omp critical
+                    {
+                        q.push(adj[u][i]);
+                        vis[adj[u][i]] = true;
+                    }
+                }
             }
         }
-        bfs(adj, q, vis);
     }
 };
 int main()
@@ -86,11 +95,14 @@ int main()
     }
     vector<int> vis(v, 0);
     queue<int> q;
+    
     Graph sg;
     ParallelGraph pg;
+    
     //Sequential Time
     //1.dfs
     auto start = high_resolution_clock::now();
+    cout << "Seq Depth-First Search (DFS): "<<endl;
     sg.dfs(adj,vis,0);
     auto end = high_resolution_clock::now();
     auto sqdfstime = duration_cast<milliseconds>(end-start);
@@ -101,6 +113,9 @@ int main()
     }
     //2.bfs
     start = high_resolution_clock::now();
+    cout << "Seq Breadth-First Search (DFS): "<<endl;
+    vis[0] = true;
+    q.push(0);
     sg.bfs(adj,q,vis);
     end = high_resolution_clock::now();
     auto sqbfstime = duration_cast<milliseconds>(end-start);
@@ -112,6 +127,7 @@ int main()
         vis[i]=0;
     }
     start = high_resolution_clock::now();
+    cout << "Parallel Depth-First Search (DFS): "<<endl;
     pg.dfs(adj,vis,0);
     end = high_resolution_clock::now();
     auto pdfstime = duration_cast<milliseconds>(end-start);
@@ -122,6 +138,9 @@ int main()
     }
     q.empty();
     start = high_resolution_clock::now();
+    cout << "Parallel Breadth-First Search (DFS): "<<endl;
+    vis[0] = true;
+    q.push(0);
     pg.bfs(adj,q,vis);
     end = high_resolution_clock::now();
     auto pbfstime = duration_cast<milliseconds>(end-start);
